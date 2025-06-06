@@ -21,26 +21,39 @@ export function formatDate(date: Date | string): string {
 export function formatRelativeTime(date: Date | string): string {
   const dateObj = typeof date === "string" ? new Date(date) : date;
   const now = new Date();
-  const diffInSeconds = Math.floor((dateObj.getTime() - now.getTime()) / 1000);
+  
+  // Ensure both dates are in the same timezone
+  const utcDate = new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000);
+  const utcNow = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
+  
+  const diffInSeconds = Math.floor((utcDate.getTime() - utcNow.getTime()) / 1000);
   const diffInMinutes = Math.floor(diffInSeconds / 60);
   const diffInHours = Math.floor(diffInMinutes / 60);
   const diffInDays = Math.floor(diffInHours / 24);
 
-  if (Math.abs(diffInDays) > 30) {
-    return formatDate(dateObj);
+  // For very recent notes (less than 1 minute)
+  if (Math.abs(diffInSeconds) < 60) {
+    return "just now";
   }
 
-  if (Math.abs(diffInDays) > 0) {
-    return RELATIVE_FORMATTER.format(diffInDays, "day");
-  }
-
-  if (Math.abs(diffInHours) > 0) {
-    return RELATIVE_FORMATTER.format(diffInHours, "hour");
-  }
-
-  if (Math.abs(diffInMinutes) > 0) {
+  // For notes from today
+  if (Math.abs(diffInDays) === 0) {
+    if (Math.abs(diffInHours) > 0) {
+      return RELATIVE_FORMATTER.format(diffInHours, "hour");
+    }
     return RELATIVE_FORMATTER.format(diffInMinutes, "minute");
   }
 
-  return "just now";
+  // For notes from yesterday
+  if (Math.abs(diffInDays) === 1) {
+    return "yesterday";
+  }
+
+  // For notes within the last month
+  if (Math.abs(diffInDays) <= 30) {
+    return RELATIVE_FORMATTER.format(diffInDays, "day");
+  }
+
+  // For older notes
+  return formatDate(dateObj);
 }

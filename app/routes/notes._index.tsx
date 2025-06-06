@@ -3,7 +3,7 @@ import {
   type LoaderFunctionArgs,
   type ActionFunctionArgs,
 } from "@remix-run/node";
-import { useLoaderData, useNavigation } from "@remix-run/react";
+import { useLoaderData, useNavigation, useSearchParams } from "@remix-run/react";
 import { Button } from "~/components/ui/button";
 import { NotesGrid } from "~/components/notes/notes-grid";
 import { NoteForm } from "~/components/notes/note-form";
@@ -29,8 +29,14 @@ import { NotesGridSkeleton } from "~/components/notes/note-skeleton";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const userId = await requireUserId(request);
-  const { notes } = await getNotesByUserId(userId);
-  return json({ notes });
+  const url = new URL(request.url);
+  const page = Number(url.searchParams.get("page")) || 1;
+  const perPage = 20;
+  
+  const { notes, total } = await getNotesByUserId(userId, { page, perPage });
+  const totalPages = Math.ceil(total / perPage);
+  
+  return json({ notes, total, totalPages, currentPage: page });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -72,11 +78,19 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function NotesIndexPage() {
-  const { notes } = useLoaderData<typeof loader>();
+  const { notes, total, totalPages, currentPage } = useLoaderData<typeof loader>();
   const [isOpen, setIsOpen] = useState(false);
   const navigation = useNavigation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isLoading = navigation.state === "loading";
-  // Reset the success handled flag when navigation change
+
+  const handlePageChange = (newPage: number) => {
+    setSearchParams(prev => {
+      prev.set("page", newPage.toString());
+      return prev;
+    });
+  };
+
   return (
     <div className="h-full min-h-screen bg-background">
       <div className="container px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
@@ -86,13 +100,11 @@ export default function NotesIndexPage() {
               <div className="space-y-1">
                 <PageHeaderHeading>Notes</PageHeaderHeading>
                 <PageHeaderDescription>
-                  Manage your notes and thoughts in one place.
+                  Manage your notes and thoughts in one place. Showing {notes.length} of {total} notes.
                 </PageHeaderDescription>
               </div>
               <Button
-                onClick={() => {
-                  setIsOpen(true);
-                }}
+                onClick={() => setIsOpen(true)}
                 disabled={isLoading}
               >
                 <PlusIcon className="mr-2 h-4 w-4" />
@@ -135,6 +147,28 @@ export default function NotesIndexPage() {
             </CardHeader>
             <CardContent>
               {isLoading ? <NotesGridSkeleton /> : <NotesGrid notes={notes} />}
+              
+              {totalPages > 1 && (
+                <div className="mt-4 flex justify-center space-x-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1 || isLoading}
+                  >
+                    Previous
+                  </Button>
+                  <span className="py-2">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages || isLoading}
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

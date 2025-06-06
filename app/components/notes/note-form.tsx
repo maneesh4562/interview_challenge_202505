@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Form, useActionData, useNavigation } from "@remix-run/react";
+import { Form, useActionData, useNavigation, useSubmit } from "@remix-run/react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -18,6 +18,7 @@ export function NoteForm({ defaultValues = {}, onSuccess }: NoteFormProps) {
   }>();
   const navigation = useNavigation();
   const formRef = useRef<HTMLFormElement>(null);
+  const submit = useSubmit();
 
   const isSubmitting = navigation.state === "submitting";
 
@@ -28,8 +29,14 @@ export function NoteForm({ defaultValues = {}, onSuccess }: NoteFormProps) {
     }
   }, [actionData?.success, onSuccess]);
 
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    submit(formData, { method: "post" });
+  };
+
   return (
-    <Form ref={formRef} method="post" className="space-y-4">
+    <Form ref={formRef} method="post" onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="title">Title</Label>
         <Input
